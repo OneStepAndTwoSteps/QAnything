@@ -1,106 +1,106 @@
 version: '3.5'
 
 services:
-  etcd:
-    container_name: milvus-etcd-local
-    image: quay.io/coreos/etcd:v3.5.5
-    environment:
+  etcd: # 是一个分布式键值存储，用于服务发现和配置共享
+    container_name: milvus-etcd-local  # 容器名称
+    image: quay.io/coreos/etcd:v3.5.5  # 使用的镜像
+    environment:  # 环境变量设置
       - ETCD_AUTO_COMPACTION_MODE=revision
       - ETCD_AUTO_COMPACTION_RETENTION=1000
       - ETCD_QUOTA_BACKEND_BYTES=4294967296
       - ETCD_SNAPSHOT_COUNT=50000
-    volumes:
+    volumes:  # 卷映射
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
-    healthcheck:
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd  # 启动命令
+    healthcheck:  # 健康检查配置，健康状态检测
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 30s
       timeout: 20s
       retries: 3
 
   minio:
-    container_name: milvus-minio-local
-    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
-    environment:
+    container_name: milvus-minio-local  # 容器名称
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z  # 使用的镜像
+    environment:  # 环境变量设置
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
-    # ports:
+    # ports:  # 端口映射（当前被注释掉）
     #   - "9001:9001"
-    #       - "9000:9000"
-    volumes:
+    #   - "9000:9000"
+    volumes:  # 卷映射
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
-    command: minio server /minio_data --console-address ":9001"
-    healthcheck:
+    command: minio server /minio_data --console-address ":9001"  # 启动命令
+    healthcheck:  # 健康检查配置
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
 
   standalone:
-    container_name: milvus-standalone-local
-    image: milvusdb/milvus:v2.3.4
-    logging:
+    container_name: milvus-standalone-local  # 容器名称，容器的名称为 milvus-standalone-local。这是容器运行时的唯一标识。
+    image: milvusdb/milvus:v2.3.4  # 使用的镜像
+    logging:  # 日志配置
       driver: "json-file"
       options:
-        max-size: "100m"
-        max-file: "3"
-    command: ["milvus", "run", "standalone"]
+        max-size: "100m" # 表示单个日志文件的最大大小为 100MB
+        max-file: "3" # 表示最多保留 3 个这样的日志文件。
+    command: ["milvus", "run", "standalone"]  # 启动命令
     security_opt:
     - seccomp:unconfined
-    environment:
+    environment:  # 环境变量设置
       ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-    volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
-    healthcheck:
+      MINIO_ADDRESS: minio:9000 #  指定 Milvus 与 MinIO 服务通信的地址和端口。MinIO 是一个高性能的分布式对象存储服务。
+    volumes:  # 卷映射
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus # 将宿主机上的一个目录（根据 DOCKER_VOLUME_DIRECTORY 环境变量或当前目录）映射到容器内的 /var/lib/milvus。这用于持久化 Milvus 的数据。
+    healthcheck:  # 健康检查配置
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 30s
       start_period: 90s
       timeout: 20s
       retries: 3
-    # ports:
-    #       - "19530:19530"
-    #       - "9091:9091"
-    depends_on:
+    # ports:  # 端口映射（当前被注释掉）
+    #   - "19530:19530"
+    #   - "9091:9091"
+    depends_on:  # 依赖的服务 指定了 standalone 服务依赖于 etcd 和 minio 服务。这意味着在 standalone 服务启动之前，Docker Compose 会先确保 etcd 和 minio 服务已经启动。
       - "etcd"
       - "minio"
 
   mysql:
-    container_name: mysql-container-local
+    container_name: mysql-container-local  # 容器名称
     privileged: true
-    image: mysql
-    #     ports:
-    #       - "3306:3306"
-    environment:
+    image: mysql  # 使用的镜像
+    # ports:  # 端口映射（当前被注释掉）
+    #   - "3306:3306"
+    environment:  # 环境变量设置
       - MYSQL_ROOT_PASSWORD=123456
-    volumes:
+    volumes:  # 卷映射
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/mysql:/var/lib/mysql
 
   qanything_local:
-    container_name: qanything-container-local
-    image: freeren/qanything:v1.0.9
-    # runtime: nvidia
-    deploy:
+    container_name: qanything-container-local  # 容器名称
+    image: freeren/qanything:v1.0.9  # 使用的镜像
+    # runtime: nvidia  # GPU运行时设置（当前被注释掉）
+    deploy:  # 部署配置
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: "all"
               capabilities: ["gpu"]
-    command: /workspace/qanything_local/scripts/run_for_local.sh
+    command: /workspace/qanything_local/scripts/run_for_local.sh  # 启动命令
     privileged: true
     shm_size: '8gb'
-    volumes:
+    volumes:  # 卷映射
       - ${DOCKER_VOLUME_DIRECTORY:-.}/models:/model_repos/QAEnsemble
       - ${DOCKER_VOLUME_DIRECTORY:-.}/:/workspace/qanything_local/
-    ports:
+    ports:  # 端口映射
       - "5052:5052"
       - "8777:8777"
-    environment:
+    environment:  # 环境变量设置
       - NCCL_LAUNCH_MODE=PARALLEL
       - GPUID1=${GPUID1:-0}
       - GPUID2=${GPUID2:-0}
-    depends_on:
+    depends_on:  # 依赖的服务
       - "standalone"
       - "mysql"
     tty: true
@@ -108,4 +108,4 @@ services:
 
 networks:
   default:
-    name: qanything_milvus_mysql_local
+    name: qanything_milvus_mysql_local  # 网络配置
